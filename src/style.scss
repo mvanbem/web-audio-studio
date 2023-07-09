@@ -1,0 +1,98 @@
+html {
+    font-family: sans-serif;
+}
+
+#container {
+    position: absolute;
+    right: 0;
+    top: 0;
+    left: 0;
+    bottom: 0;
+
+    display: flex;
+    flex-flow: column nowrap;
+}
+
+.app {
+    flex: 1;
+    display: flex;
+    flex-flow: column nowrap;
+    overflow: hidden;
+}
+
+.preset-selector {
+    border-bottom: 1px solid black;
+    padding: 8px;
+
+    display: flex;
+    flex-flow: row wrap;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.sound-editor {
+    padding: 8px;
+    flex: 1;
+    overflow-y: scroll;
+
+    display: flex;
+    flex-flow: column nowrap;
+    gap: 8px;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.props {
+    border: 1px solid black;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 8px;
+    place-items: baseline flex-start;
+
+    .title {
+        grid-column-end: span 2;
+        margin-bottom: 8px;
+    }
+}
+
+.spaced {
+    display: flex;
+    flex-flow: row nowrap;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.ramps {
+    grid-column-end: span 2;
+    display: flex;
+    flex-flow: column nowrap;
+    gap: 8px;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.render-bar {
+    border-top: 1px solid black;
+    padding: 8px;
+
+    display: flex;
+    flex-flow: row wrap;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.expand {
+    flex: 1;
+}
+
+.title {
+    font-weight: bold;
+}
+
+.validation-error {
+    color: #000;
+    background-color: #fcc;
+    font-weight: bold;
+    padding: 4px 8px;
+}
