@@ -1,15 +1,19 @@
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-    mode: 'development',
     entry: './src/index.tsx',
     plugins: [
         new HtmlWebpackPlugin({
             title: 'Web Audio Studio',
         }),
+        new MiniCssExtractPlugin({
+            filename: '[name].css',
+            chunkFilename: '[id].css',
+        }),
     ],
-    devtool: 'inline-source-map',
     module: {
         rules: [
             {
@@ -19,7 +23,7 @@ module.exports = {
             },
             {
                 test: /\.scss$/i,
-                use: ['style-loader', 'css-loader', 'sass-loader'],
+                use: [MiniCssExtractPlugin.loader, 'css-loader', 'sass-loader'],
             },
         ],
     },
@@ -27,11 +31,14 @@ module.exports = {
         extensions: ['.tsx', '.ts', '.js'],
     },
     output: {
-        filename: 'bundle.js',
+        filename: '[name].[contenthash].js',
         path: path.resolve(__dirname, 'dist'),
+        clean: true,
     },
-    devServer: {
-        static: './dist',
-        port: 8080,
+    optimization: {
+        minimizer: [
+            '...',
+            new CssMinimizerPlugin(),
+        ],
     },
 };
