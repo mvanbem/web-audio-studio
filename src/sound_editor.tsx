@@ -1,53 +1,27 @@
 import * as React from 'react';
 import { DeferredTextInput } from './deferred_text_input';
-import { NodeDesc, OscillatorNodeDesc, OscillatorTypeDesc, ParamDesc, RampDesc, SoundDesc } from './sound_desc';
+import { GainNodeDesc, NodeDesc, OscillatorNodeDesc, OscillatorTypeDesc, ParamDesc, PinkNoiseNodeDesc, RampDesc, RampTypeDesc, SoundDesc } from './sound_desc';
 import { ParseResult, MappedTextInput } from './mapped_text_input';
+import * as Immutable from 'immutable';
 
 export function SoundEditor({
     sound,
-    onSoundChange,
+    onChange,
 }: {
     sound: SoundDesc,
-    onSoundChange: (value: SoundDesc) => void,
+    onChange: (value: SoundDesc) => void,
 }) {
-    function updateName(name: string) {
-        if (name != sound.name) {
-            onSoundChange({
-                ...sound,
-                name,
-            });
-        }
-    }
-
-    function updateDuration(duration: number) {
-        if (duration !== null && duration != sound.duration) {
-            onSoundChange({
-                ...sound,
-                duration,
-            });
-        }
-    }
-
-    function updateNodes(nodes: NodeDesc[]) {
-        if (nodes !== sound.nodes) {
-            onSoundChange({
-                ...sound,
-                nodes,
-            });
-        }
-    }
-
     return (
         <div className='sound-editor'>
             <SoundPropertiesEditor
                 name={sound.name}
                 duration={sound.duration}
-                onNameChange={updateName}
-                onDurationChange={updateDuration}
+                onChangeName={name => onChange(sound.withName(name))}
+                onChangeDuration={duration => onChange(sound.withDuration(duration))}
             />
             <NodeListEditor
                 nodes={sound.nodes}
-                onChange={updateNodes}
+                onChange={nodes => onChange(sound.withNodes(nodes))}
             />
         </div>
     );
@@ -56,13 +30,13 @@ export function SoundEditor({
 export function SoundPropertiesEditor({
     name,
     duration,
-    onNameChange,
-    onDurationChange,
+    onChangeName,
+    onChangeDuration,
 }: {
     name: string,
     duration: number,
-    onNameChange: (value: string) => void,
-    onDurationChange: (value: number) => void,
+    onChangeName: (value: string) => void,
+    onChangeDuration: (value: number) => void,
 }) {
     function parseDuration(text: string): ParseResult<number> {
         let duration = parseFloat(text);
@@ -94,7 +68,7 @@ export function SoundPropertiesEditor({
             <div>Sound name</div>
             <DeferredTextInput
                 value={name}
-                onChange={onNameChange}
+                onChange={onChangeName}
             />
             <div>Duration</div>
             <div className='spaced'>
@@ -102,7 +76,7 @@ export function SoundPropertiesEditor({
                     value={duration}
                     render={value => value.toString()}
                     parse={parseDuration}
-                    onChange={onDurationChange}
+                    onChange={onChangeDuration}
                 />
                 seconds
             </div>
@@ -112,67 +86,81 @@ export function SoundPropertiesEditor({
 
 export function NodeListEditor({
     nodes,
-    onChange,
+    onChange
 }: {
-    nodes: NodeDesc[],
-    onChange: (value: NodeDesc[]) => void,
+    nodes: Immutable.List<NodeDesc>,
+    onChange: (value: Immutable.List<NodeDesc>) => void,
 }) {
-    function updateNode(node: NodeDesc, nodeIndex: number) {
-        if (node !== nodes[nodeIndex]) {
-            onChange(nodes.map((oldNode, oldNodeIndex) => {
-                return (oldNodeIndex == nodeIndex) ? node : oldNode;
-            }));
-        }
+    function addNode() {
+        onChange(nodes.push(new OscillatorNodeDesc(
+            'sine',
+            new ParamDesc(1000, Immutable.List()),
+            Immutable.Set())));
     }
 
     const nodeEditors = nodes.map((node, nodeIndex) => {
+        const eligibleConnections = new Set([-1]);
+        nodes.forEach((dstNode, dstNodeIndex) => {
+            if (dstNodeIndex != nodeIndex && dstNode.hasInputs()) {
+                eligibleConnections.add(dstNodeIndex);
+            }
+        });
         return (
             <NodeEditor
                 key={nodeIndex}
-                nodeCount={nodes.length}
                 node={node}
                 nodeIndex={nodeIndex}
-                onChange={node => updateNode(node, nodeIndex)}
+                eligibleConnections={eligibleConnections}
+                onChange={node => onChange(nodes.set(nodeIndex, node))}
+                onRemove={() => onChange(SoundDesc.removeNode(nodes, nodeIndex))}
             />
         );
     });
 
     return <>
         {nodeEditors}
-        <button>Add Node</button>
+        <button onClick={addNode}>Add Node</button>
     </>;
 }
 
 export function NodeEditor({
-    nodeCount,
     node,
     nodeIndex,
+    eligibleConnections,
     onChange,
+    onRemove,
 }: {
-    nodeCount: number,
     node: NodeDesc,
     nodeIndex: number,
+    eligibleConnections: Set<number>,
     onChange: (value: NodeDesc) => void,
+    onRemove: () => void,
 }) {
-    function makeConnection(name: string, checked: boolean) {
+    function makeConnection(dstNodeIndex: number, connected: boolean) {
         return (
-            <label key={name}>
+            <label key={dstNodeIndex}>
                 <input
                     type='checkbox'
-                    checked={checked}
-                    readOnly
+                    checked={connected}
+                    onChange={e => updateConnection(dstNodeIndex, e.target.checked)}
                 />
-                {name}
+                {dstNodeIndex == -1 ? 'Output' : '#' + (dstNodeIndex + 1)}
             </label>
         );
     }
 
     const connections = [];
-    for (let dstIndex = -1; dstIndex < nodeCount; ++dstIndex) {
+    for (let dstNodeIndex of eligibleConnections) {
         connections.push(makeConnection(
-            dstIndex == -1 ? 'Output' : '#' + (dstIndex + 1),
-            node.connections.has(dstIndex),
+            dstNodeIndex,
+            node.connections.has(dstNodeIndex),
         ));
+    }
+
+    function updateConnection(dstNodeIndex: number, connected: boolean) {
+        onChange(node.withConnections(connected
+            ? node.connections.add(dstNodeIndex)
+            : node.connections.remove(dstNodeIndex)));
     }
 
     const more = (() => {
@@ -182,7 +170,7 @@ export function NodeEditor({
                     <div>Gain</div>
                     <ParamEditor
                         param={node.gain}
-                        onChange={param => updateProperty(node, 'gain', param)}
+                        onChange={param => onChange(node.withGain(param))}
                     />
                 </>;
             case 'oscillator':
@@ -190,11 +178,9 @@ export function NodeEditor({
                     <div>Oscillator Type</div>
                     <select
                         value={node.oscillatorType}
-                        onChange={e => updateProperty(
-                            node,
-                            'oscillatorType',
+                        onChange={e => onChange(node.withOscillatorType(
                             e.target.value as OscillatorTypeDesc,
-                        )}
+                        ))}
                     >
                         <option value='sawtooth'>Sawtooth</option>
                         <option value='sine'>Sine</option>
@@ -204,7 +190,7 @@ export function NodeEditor({
                     <div>Frequency</div>
                     <ParamEditor
                         param={node.frequency}
-                        onChange={param => updateProperty(node, 'frequency', param)}
+                        onChange={param => onChange(node.withFrequency(param))}
                     />
                 </>;
             case 'pink-noise':
@@ -215,39 +201,19 @@ export function NodeEditor({
     function updateType(type: string) {
         switch (type) {
             case 'gain':
-                onChange({
-                    type,
-                    connections: node.connections,
-                    gain: { initialValue: 0.5, ramps: [] },
-                });
+                onChange(new GainNodeDesc(
+                    new ParamDesc(0.5, Immutable.List()),
+                    node.connections));
                 break;
             case 'oscillator':
-                onChange({
-                    type,
-                    connections: node.connections,
-                    oscillatorType: 'sine',
-                    frequency: { initialValue: 1000, ramps: [] },
-                });
+                onChange(new OscillatorNodeDesc(
+                    'sine',
+                    new ParamDesc(1000, Immutable.List()),
+                    node.connections));
                 break;
             case 'pink-noise':
-                onChange({
-                    type,
-                    connections: node.connections,
-                });
+                onChange(new PinkNoiseNodeDesc(node.connections));
                 break;
-        }
-    }
-
-    function updateProperty<
-        T extends NodeDesc,
-        K extends keyof T,
-        V extends T[K],
-    >(node: T, name: K, value: V) {
-        if (value !== node[name]) {
-            onChange({
-                ...node,
-                [name]: value,
-            });
         }
     }
 
@@ -264,10 +230,10 @@ export function NodeEditor({
                     <option value='gain'>Gain</option>
                 </optgroup>
             </select>
+            {more}
             <div>Connections</div>
             <div className='spaced'>{connections}</div>
-            {more}
-            <button>Delete</button>
+            <button onClick={onRemove}>Remove Node</button>
         </div>
     );
 }
@@ -305,14 +271,17 @@ export function ParamEditor({
     }
 
     const ramps = param.ramps.map((ramp, rampIndex) => {
-        return RampEditor({ ramp, rampIndex });
+        return <RampEditor
+            key={rampIndex}
+            ramp={ramp}
+            onChange={ramp => onChange(param.withRamps(param.ramps.set(rampIndex, ramp)))}
+            onRemove={() => onChange(param.withRamps(param.ramps.remove(rampIndex)))}
+        />;
     });
 
-    function updateInitialValue(initialValue: number) {
-        onChange({
-            ...param,
-            initialValue: initialValue,
-        });
+    function addRamp() {
+        onChange(param.withRamps(param.ramps.push(new RampDesc(
+            'exponential', param.lastValue(), param.lastEndTime() + 0.25))));
     }
 
     return (
@@ -322,11 +291,11 @@ export function ParamEditor({
                 value={param.initialValue}
                 render={value => value.toString()}
                 parse={parseInitialValue}
-                onChange={updateInitialValue}
+                onChange={initialValue => onChange(param.withInitialValue(initialValue))}
             />
             <div className='ramps'>
                 {ramps}
-                <button>Add Ramp</button>
+                <button onClick={addRamp}>Add Ramp</button>
             </div>
         </div>
     );
@@ -334,27 +303,72 @@ export function ParamEditor({
 
 export function RampEditor({
     ramp,
-    rampIndex,
+    onChange,
+    onRemove,
 }: {
     ramp: RampDesc,
-    rampIndex: number,
+    onChange: (value: RampDesc) => void,
+    onRemove: () => void,
 }) {
+    function parseValue(text: string) {
+        let parsed = parseFloat(text);
+        if (!Number.isFinite(parsed)) {
+            return {
+                value: null,
+                error: <div className='validation-error'>Must be a finite number.</div>,
+            };
+        } else {
+            return {
+                value: parsed,
+                error: null,
+            };
+        }
+    }
+
+    function parseEndTime(text: string) {
+        let parsed = parseFloat(text);
+        if (!Number.isFinite(parsed)) {
+            return {
+                value: null,
+                error: <div className='validation-error'>Must be a finite number.</div>,
+            };
+        } else {
+            return {
+                value: parsed,
+                error: null,
+            };
+        }
+    }
+
     return (
-        <div className='props' key={rampIndex}>
+        <div className='props'>
             <div>Ramp Type</div>
-            <select value={ramp.type} disabled>
+            <select
+                value={ramp.type}
+                onChange={e => onChange(ramp.withType(e.target.value as RampTypeDesc))}
+            >
                 <option value='exponential'>Exponential</option>
                 <option value='instantaneous'>Instantaneous</option>
                 <option value='linear'>Linear</option>
             </select>
             <div>Value</div>
-            <input type='text' value={ramp.value} readOnly />
+            <MappedTextInput<number>
+                value={ramp.value}
+                render={x => x.toString()}
+                parse={parseValue}
+                onChange={value => onChange(ramp.withValue(value))}
+            />
             <div>End Time</div>
             <div className='spaced'>
-                <input type='text' value={ramp.endTime} readOnly />
+                <MappedTextInput<number>
+                    value={ramp.endTime}
+                    render={x => x.toString()}
+                    parse={parseEndTime}
+                    onChange={endTime => onChange(ramp.withEndTime(endTime))}
+                />
                 seconds
             </div>
-            <button>Delete</button>
+            <button onClick={onRemove}>Remove Ramp</button>
         </div>
     );
 }

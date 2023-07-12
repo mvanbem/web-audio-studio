@@ -1,4 +1,4 @@
-import { SoundDesc, setupSound } from './sound_desc';
+import { SoundDesc } from './sound_desc';
 import { AudioState } from './audio_state';
 import { createPinkNoiseBuffer } from './noise';
 
@@ -24,13 +24,13 @@ import { createPinkNoiseBuffer } from './noise';
 //
 // () => rec.stop(),
 
-export function renderSound<Params>(audio: AudioState, soundDesc: SoundDesc): Promise<AudioBuffer> {
+export function renderSound<Params>(audio: AudioState, sound: SoundDesc): Promise<AudioBuffer> {
     let ctx = new OfflineAudioContext({
         numberOfChannels: 1,
-        length: 48000 * soundDesc.duration,
+        length: 48000 * sound.duration,
         sampleRate: 48000,
     });
     let pinkNoiseBuffer = createPinkNoiseBuffer(ctx);
-    setupSound(ctx, pinkNoiseBuffer, soundDesc);
+    sound.setup(ctx, pinkNoiseBuffer);
     return ctx.startRendering();
 }

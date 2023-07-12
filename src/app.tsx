@@ -7,22 +7,22 @@ import { AudioState, PlaybackState } from './audio_state';
 import { SoundEditor } from './sound_editor';
 
 export function App({ audioState, presets }: { audioState: AudioState; presets: SoundDesc[]; }) {
-    const [soundDesc, setSoundDesc] = React.useState(presets[0]);
+    const [sound, setSound] = React.useState(presets[0]);
     const [fileName, setFileName] = React.useState('');
 
     return (
         <div className='app'>
             <PresetSelector
                 presets={presets}
-                onLoad={setSoundDesc}
+                onLoad={setSound}
             />
             <SoundEditor
-                sound={soundDesc}
-                onSoundChange={setSoundDesc}
+                sound={sound}
+                onChange={setSound}
             />
             <RenderBar
                 audioState={audioState}
-                soundDesc={soundDesc}
+                soundDesc={sound}
                 fileName={fileName}
                 onFileNameChange={setFileName}
             />
